@@ -13,6 +13,8 @@ let activeSources = new Set();
 let nextStartTime = 0;
 let isAiSpeaking = false;
 let stream = null;
+let currentInput = "";
+let currentOutput = "";
 
 // DOM Elements
 const statusDot = document.getElementById('status-dot');
@@ -74,6 +76,11 @@ function setStatus(newStatus) {
 }
 
 function addMessage(role, text) {
+    console.log(`Adding message to UI: [${role}] ${text}`);
+    if (!messagesContainer) {
+        console.error("Messages container not found!");
+        return;
+    }
     emptyState.style.display = 'none';
 
     const div = document.createElement('div');
@@ -89,6 +96,7 @@ function addMessage(role, text) {
 
     messagesContainer.appendChild(div);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    console.log("Message appended to DOM");
 }
 
 // Audio Logic
@@ -113,23 +121,49 @@ async function startSession() {
 
         ws.onmessage = async (event) => {
             const data = JSON.parse(event.data);
+            console.log("Received data:", data); // verbose
 
             if (data.audio) {
                 playAudio(data.audio);
             }
-            if (data.text) {
-                const lastMessage = messagesContainer.lastElementChild;
-                if (lastMessage && lastMessage.dataset.role === data.role) {
-                    // Append to existing bubble
-                    const bubble = lastMessage.querySelector('.bubble');
-                    if (bubble) {
-                        bubble.innerText += data.text;
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                } else {
-                    // New message
-                    addMessage(data.role, data.text);
+
+            // Handle Transcription
+            if (data.type === 'transcription') {
+                console.log(`Transcription (${data.role}): ${data.text}`);
+                if (data.role === 'user') {
+                    currentInput += data.text;
+                } else if (data.role === 'model') {
+                    currentOutput += data.text;
                 }
+            } else if (data.text && !data.type) {
+                console.log("Legacy Text:", data.text);
+                if (data.role === 'model') currentOutput += data.text;
+            }
+
+            // Handle Turn Complete
+            if (data.turnComplete) {
+                console.log("Turn Complete");
+                const userText = currentInput.trim();
+                const modelText = currentOutput.trim();
+
+                if (userText) {
+                    addMessage('user', userText);
+                    currentInput = "";
+                }
+
+                if (modelText) {
+                    addMessage('model', modelText);
+                    currentOutput = "";
+                }
+            }
+
+            if (data.interrupted) {
+                // Clear buffers and stop audio
+                currentInput = "";
+                currentOutput = "";
+                activeSources.forEach(s => s.stop());
+                activeSources.clear();
+                isAiSpeaking = false;
             }
         };
 

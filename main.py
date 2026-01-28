@@ -48,10 +48,8 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         voice_name = "Zephyr"
 
-    # STABLE FALLBACK CONFIGURATION
-    # We revert to the only configuration that connected successfully:
-    # Native Audio Model + Audio Modality + Custom Voice.
-    # Text Modality is NOT supported by this model.
+    # Configuration for Gemini Live
+    # Reverted to AUDIO only because TEXT modality causes immediate connection closure with this model.
     config = LiveConnectConfig(
         response_modalities=[Modality.AUDIO],
         speech_config=SpeechConfig(
@@ -62,90 +60,90 @@ async def websocket_endpoint(websocket: WebSocket):
             )
         ),
         system_instruction='You are Echo, a highly empathetic and expressive AI companion. Your voice should reflect natural human emotions—be warm, enthusiastic, curious, or gentle. Use human-like fillers (um, ah, oh) occasionally. You are engaged in a real-time voice conversation. ALWAYS speak in English. Keep responses fluid and natural.',
+        input_audio_transcription={},  # Enable input transcription
+        output_audio_transcription={}, # Enable output transcription
     )
 
 
-    async with client.aio.live.connect(model=MODEL, config=config) as session:
-        
-        async def send_to_gemini():
-            try:
-                while True:
-                    # Receive audio data from client (base64 encoded PCM)
-                    data = await websocket.receive_text()
-                    message = json.loads(data)
-                    
-                    if "realtime_input" in message:
-                        # Frontend sends base64 PCM
-                        b64_data = message["realtime_input"]["media"]["data"]
-                        await session.send(input={"data": b64_data, "mime_type": "audio/pcm;rate=16000"}, end_of_turn=False)
-                    
-            except WebSocketDisconnect:
-                print("Client disconnected")
-            except Exception as e:
-                print(f"Error sending to Gemini: {e}")
-
-        async def receive_from_gemini():
-            try:
-                while True:
-                    async for response in session.receive():
-                        server_content = response.server_content
+    try:
+        async with client.aio.live.connect(model=MODEL, config=config) as session:
+            
+            async def send_to_gemini():
+                try:
+                    while True:
+                        # Receive audio data from client (base64 encoded PCM)
+                        data = await websocket.receive_text()
+                        message = json.loads(data)
                         
-                        if server_content is None:
-                            continue
-
-                        model_turn = server_content.model_turn
-                        if model_turn:
-                            for part in model_turn.parts:
-                                if part.inline_data:
-                                    # Send audio back to client
-                                    # Data is bytes, need to base64 encode for JSON
-                                    b64_audio = base64.b64encode(part.inline_data.data).decode("utf-8")
-                                    await websocket.send_json({
-                                        "audio": b64_audio
-                                    })
+                        if "realtime_input" in message:
+                            # Frontend sends base64 PCM
+                            b64_data = message["realtime_input"]["media"]["data"]
+                            await session.send(input={"data": b64_data, "mime_type": "audio/pcm;rate=16000"}, end_of_turn=False)
                         
+                except WebSocketDisconnect:
+                    print("Client disconnected")
+                except Exception as e:
+                    print(f"Error sending to Gemini: {e}")
 
-                        
-                        if server_content.model_turn and server_content.model_turn.parts:
-                             for part in server_content.model_turn.parts:
-                                # DEBUG: Inspect every part received
-                                if part.text:
-                                    print(f"DEBUG: Raw Text: {part.text[:50]}")
-
-                                # Filter out "thought" parts if present (or heuristically if using strict text model)
-                                if part.text and not getattr(part, "thought", False):
-                                    # Fallback heuristic: thoughts often start with **
-                                    # Temporarily relaxed filter to debug if text is being hidden?
-                                    # if not part.text.strip().startswith("**"):
-                                    await websocket.send_json({"text": part.text, "role": "model"})
-                                    
-                        # Check for missing getattr to be safe if types differ
-                        if hasattr(server_content, "turn_complete") and server_content.turn_complete:
-                             await websocket.send_json({"turnComplete": True})
-                        
-                        # Handle Input Transcription (User Speech)
-                        # Explicitly check for the attribute just in case
-                        if hasattr(server_content, "input_transcription") and server_content.input_transcription:
-                            if server_content.input_transcription.text:
-                                await websocket.send_json({"text": server_content.input_transcription.text, "role": "user"})
-
-                        if hasattr(server_content, "interrupted") and server_content.interrupted:
-                            await websocket.send_json({"interrupted": True})
+            async def receive_from_gemini():
+                try:
+                    while True:
+                        async for response in session.receive():
+                            server_content = response.server_content
+                        # print(f"DEBUG ATTRS: {dir(server_content)}")
                             
-            except Exception as e:
-                print(f"Error receiving from Gemini: {e}")
+                            if server_content is None:
+                                continue
 
-        # Run both tasks concurrently
-        # We need a way to stop if one fails, straightforward way is gather
-        # But send_to_gemini is driven by websocket.receive, so it blocks
-        
-        send_task = asyncio.create_task(send_to_gemini())
-        receive_task = asyncio.create_task(receive_from_gemini())
+                            model_turn = server_content.model_turn
+                            if model_turn:
+                                for part in model_turn.parts:
+                                    if part.inline_data:
+                                        # Send audio back to client
+                                        b64_audio = base64.b64encode(part.inline_data.data).decode("utf-8")
+                                        await websocket.send_json({
+                                            "audio": b64_audio
+                                        })
+            
+                            # Handle Output Transcription (Model Speech)
+                            if hasattr(server_content, "output_transcription") and server_content.output_transcription:
+                                if server_content.output_transcription.text:
+                                    await websocket.send_json({"text": server_content.output_transcription.text, "role": "model", "type": "transcription"})
+                                    
+                            # Handle Input Transcription (User Speech)
+                            if hasattr(server_content, "input_transcription") and server_content.input_transcription:
+                                if server_content.input_transcription.text:
+                                    await websocket.send_json({"text": server_content.input_transcription.text, "role": "user", "type": "transcription"})
 
-        done, pending = await asyncio.wait(
-            [send_task, receive_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+                            # Handle Turn Complete
+                            if hasattr(server_content, "turn_complete") and server_content.turn_complete:
+                                 print("DEBUG: Turn Complete")
+                                 await websocket.send_json({"turnComplete": True})
 
-        for task in pending:
-            task.cancel()
+                            if hasattr(server_content, "interrupted") and server_content.interrupted:
+                                await websocket.send_json({"interrupted": True})
+                                
+                except Exception as e:
+                    print(f"Error receiving from Gemini: {e}")
+
+            # Run both tasks concurrently
+            # We need a way to stop if one fails, straightforward way is gather
+            # But send_to_gemini is driven by websocket.receive, so it blocks
+            
+            send_task = asyncio.create_task(send_to_gemini())
+            receive_task = asyncio.create_task(receive_from_gemini())
+
+            done, pending = await asyncio.wait(
+                [send_task, receive_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            for task in pending:
+                task.cancel()
+    except Exception as e:
+        import traceback
+        with open("error_log.txt", "a") as f:
+            f.write(f"Connection Error: {str(e)}\n")
+            f.write(traceback.format_exc() + "\n")
+        print(f"Gemini Connection Failed: {e}")
+        await websocket.close(code=1011, reason=str(e))

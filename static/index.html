@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EchoSphere AI - Live Speech</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -27,8 +30,8 @@
         <main>
             <!-- Left Panel: Interaction -->
             <div class="interaction-panel">
-                <div class="visualizer-container">
-                    <canvas id="visualizer"></canvas>
+                <div class="visualizer-container" id="avatar-container">
+                    <!-- 3D Scene Injected Here -->
                 </div>
 
                 <div class="controls">
@@ -36,7 +39,8 @@
                         <button id="start-btn" class="btn btn-primary">
                             <span class="btn-text">Start Conversation</span>
                             <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M14 5l7 7m0 0l-7 7m7-7H3" />
                             </svg>
                         </button>
                         <button id="stop-btn" class="btn btn-danger hidden">
@@ -64,7 +68,7 @@
                     <h3>Conversation</h3>
                     <button id="clear-btn">Clear All</button>
                 </div>
-                
+
                 <div id="messages" class="messages-container custom-scrollbar">
                     <div id="empty-state" class="empty-state">
                         <div class="empty-icon">
@@ -89,4 +93,5 @@
     </div>
     <script src="/static/script.js"></script>
 </body>
+
 </html>

@@ -16,22 +16,203 @@ let stream = null;
 let currentInput = "";
 let currentOutput = "";
 
+// 3D Avatar Context
+let scene, camera, renderer, robot, mouth, eyes, eyesContainer;
+const avatarContainer = document.getElementById('avatar-container');
+let volumeHistory = new Array(20).fill(0); // For smooth visualization
+
+// 3D Logic
+function initAvatar() {
+    console.log("Initializing Avatar...");
+    if (typeof THREE === 'undefined') {
+        console.error("Three.js is NOT loaded!");
+        return;
+    }
+    if (!avatarContainer) {
+        console.error("Avatar container NOT found!");
+        return;
+    }
+    console.log(`Container dimensions: ${avatarContainer.offsetWidth}x${avatarContainer.offsetHeight}`);
+
+    // Scene Setup
+    scene = new THREE.Scene();
+    scene.background = null;
+
+    // Camera
+    camera = new THREE.PerspectiveCamera(50, avatarContainer.offsetWidth / avatarContainer.offsetHeight, 0.1, 1000);
+    camera.position.z = 5;
+    camera.position.y = 0.5;
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(avatarContainer.offsetWidth, avatarContainer.offsetHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    avatarContainer.appendChild(renderer.domElement);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+
+    const blueLight = new THREE.PointLight(0x3b82f6, 0.8);
+    blueLight.position.set(-5, 0, 5);
+    scene.add(blueLight);
+
+    // Robot Model (Procedural)
+    robot = new THREE.Group();
+    scene.add(robot);
+
+    // Head
+    const headGeo = new THREE.SphereGeometry(1.2, 32, 32);
+    const headMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.2,
+        metalness: 0.1,
+        emissive: 0x111111
+    });
+    const head = new THREE.Mesh(headGeo, headMat);
+    robot.add(head);
+
+    // Face Container
+    const faceGroup = new THREE.Group();
+    faceGroup.position.z = 1.05; // Slightly in front of head center
+    robot.add(faceGroup);
+
+    // Eyes
+    eyesContainer = new THREE.Group();
+    faceGroup.add(eyesContainer);
+
+    const eyeGeo = new THREE.CapsuleGeometry(0.12, 0.15, 4, 8);
+    // Rotate to make pills horizontal? No, vertical pills looked cute.
+    // Let's rely on standard Capsule orientation (Y axis).
+    const eyeMat = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: 0x10b981,
+        emissiveIntensity: 2
+    });
+
+    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+    leftEye.position.set(-0.4, 0.2, 0);
+    leftEye.rotation.z = Math.PI / 2; // Horizontal eyes
+    eyesContainer.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+    rightEye.position.set(0.4, 0.2, 0);
+    rightEye.rotation.z = Math.PI / 2;
+    eyesContainer.add(rightEye);
+
+    eyes = [leftEye, rightEye];
+
+    // Mouth
+    const mouthGeo = new THREE.CapsuleGeometry(0.08, 0.3, 4, 8);
+    // mouthGeo.rotateZ(Math.PI / 2); // Horizontal mouth
+    const mouthMat = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: 0x10b981,
+        emissiveIntensity: 1
+    });
+    mouth = new THREE.Mesh(mouthGeo, mouthMat);
+    mouth.position.set(0, -0.3, 0);
+    mouth.rotation.z = Math.PI / 2; // Horizontal
+    faceGroup.add(mouth);
+
+    // Antenna
+    const antStemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.5);
+    const antStemMat = new THREE.MeshStandardMaterial({ color: 0x64748b });
+    const antStem = new THREE.Mesh(antStemGeo, antStemMat);
+    antStem.position.y = 1.45;
+    robot.add(antStem);
+
+    const antBulbGeo = new THREE.SphereGeometry(0.08);
+    const antBulbMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 2 });
+    const antBulb = new THREE.Mesh(antBulbGeo, antBulbMat);
+    antBulb.position.y = 0.25;
+    antStem.add(antBulb);
+
+    // Handle Resize
+    window.addEventListener('resize', onWindowResize, false);
+    console.log("Avatar Initialized Successfully");
+}
+
+function onWindowResize() {
+    if (!camera || !renderer || !avatarContainer) return;
+    camera.aspect = avatarContainer.offsetWidth / avatarContainer.offsetHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(avatarContainer.offsetWidth, avatarContainer.offsetHeight);
+}
+
+// Visualization Loop
+function updateVisualizer(volume, aiActive) {
+    volumeHistory.push(volume);
+    volumeHistory.shift();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    if (!renderer || !scene || !camera) return;
+
+    const time = Date.now() * 0.001;
+    // const currentVol = volumeHistory[volumeHistory.length - 1] || 0;
+    // Smooth volume
+    const currentVol = volumeHistory.reduce((a, b) => a + b, 0) / volumeHistory.length;
+
+    // Idle Animation (Bobbing)
+    if (robot) {
+        robot.position.y = Math.sin(time * 2) * 0.1;
+        robot.rotation.y = Math.sin(time * 0.5) * 0.05;
+    }
+
+    // Reaction to volume
+    if (mouth) {
+        let intensity = Math.min(currentVol * 10, 1.5);
+        if (isAiSpeaking && currentVol > 0.01) {
+            // Open mouth
+            mouth.scale.set(1 + intensity * 0.5, 1 + intensity * 2, 1);
+        } else {
+            // Idle
+            mouth.scale.set(1, 1, 1);
+        }
+    }
+
+    // Eye Color State
+    if (eyes && eyes.length > 0) {
+        const targetColor = (status === 'CONNECTED' && isAiSpeaking) ? 0x10b981 : // Speaking: Green
+            (status === 'CONNECTED') ? 0x3b82f6 : // Listening: Blue
+                0x64748b; // Disconnected: Grey
+
+        eyes.forEach(eye => {
+            eye.material.emissive.setHex(targetColor);
+
+            // Blink
+            if (Math.random() > 0.995) {
+                eye.scale.y = 0.1;
+                eye.scale.x = 0.1; // Squint
+            } else {
+                eye.scale.y = 1;
+                eye.scale.x = 1;
+            }
+        });
+
+        if (mouth) mouth.material.emissive.setHex(targetColor);
+    }
+
+    renderer.render(scene, camera);
+}
+
 // DOM Elements
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
-const visualizerCanvas = document.getElementById('visualizer');
 const messagesContainer = document.getElementById('messages');
 const emptyState = document.getElementById('empty-state');
 const errorMessage = document.getElementById('error-message');
 const voiceBtns = document.querySelectorAll('.voice-btn');
 const clearBtn = document.getElementById('clear-btn');
-
-// Visualizer Context
-const canvasCtx = visualizerCanvas.getContext('2d');
-let animationId = null;
-let volumeHistory = new Array(20).fill(0); // For smooth visualization
 
 // Utils
 function arrayBufferToBase64(buffer) {
@@ -316,45 +497,8 @@ function updateVisualizer(volume, aiActive) {
     volumeHistory.shift();
 }
 
-function draw() {
-    if (!visualizerCanvas) return;
-
-    const width = visualizerCanvas.width = visualizerCanvas.offsetParent.offsetWidth;
-    const height = visualizerCanvas.height = visualizerCanvas.offsetParent.offsetHeight;
-
-    canvasCtx.clearRect(0, 0, width, height);
-
-    const centerX = width / 2;
-    const centerY = height / 2;
-    // Current Volume (smoothed)
-    const currentVol = volumeHistory[volumeHistory.length - 1] || 0;
-
-    // Draw central circles
-    const maxRadius = Math.min(width, height) / 3;
-    let radius = 40 + (currentVol * 100);
-    if (radius > maxRadius) radius = maxRadius;
-
-    // Pulse effect
-    canvasCtx.beginPath();
-    canvasCtx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-
-    if (status === 'CONNECTED') {
-        canvasCtx.fillStyle = isAiSpeaking ? '#10b981' : '#3b82f6'; // Emerald or Blue
-    } else {
-        canvasCtx.fillStyle = '#475569'; // Slate
-    }
-    canvasCtx.fill();
-
-    // Ripples
-    if (status === 'CONNECTED' && currentVol > 0.01) {
-        canvasCtx.beginPath();
-        canvasCtx.arc(centerX, centerY, radius * 1.5, 0, 2 * Math.PI);
-        canvasCtx.strokeStyle = isAiSpeaking ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)';
-        canvasCtx.stroke();
-    }
-
-    requestAnimationFrame(draw);
-}
+// Authorization
+// ...
 
 // Initialization
 startBtn.addEventListener('click', startSession);
@@ -370,4 +514,8 @@ voiceBtns.forEach(btn => {
 });
 
 // Start loop
-draw();
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM Loaded. Starting Avatar Init...");
+    initAvatar();
+    animate();
+});

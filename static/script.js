@@ -23,7 +23,7 @@ let volumeHistory = new Array(20).fill(0); // For smooth visualization
 
 // 3D Logic
 function initAvatar() {
-    console.log("Initializing Avatar...");
+
     if (typeof THREE === 'undefined') {
         console.error("Three.js is NOT loaded!");
         return;
@@ -32,7 +32,7 @@ function initAvatar() {
         console.error("Avatar container NOT found!");
         return;
     }
-    console.log(`Container dimensions: ${avatarContainer.offsetWidth}x${avatarContainer.offsetHeight}`);
+
 
     // Scene Setup
     scene = new THREE.Scene();
@@ -134,7 +134,7 @@ function initAvatar() {
 
     // Handle Resize
     window.addEventListener('resize', onWindowResize, false);
-    console.log("Avatar Initialized Successfully");
+
 }
 
 function onWindowResize() {
@@ -257,7 +257,7 @@ function setStatus(newStatus) {
 }
 
 function addMessage(role, text) {
-    console.log(`Adding message to UI: [${role}] ${text}`);
+
     if (!messagesContainer) {
         console.error("Messages container not found!");
         return;
@@ -277,7 +277,7 @@ function addMessage(role, text) {
 
     messagesContainer.appendChild(div);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    console.log("Message appended to DOM");
+
 }
 
 // Audio Logic
@@ -290,7 +290,7 @@ async function startSession() {
         ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
         ws.onopen = async () => {
-            console.log("WS Connected");
+
             setStatus('CONNECTED');
 
             // Send config
@@ -302,7 +302,7 @@ async function startSession() {
 
         ws.onmessage = async (event) => {
             const data = JSON.parse(event.data);
-            console.log("Received data:", data); // verbose
+
 
             if (data.audio) {
                 playAudio(data.audio);
@@ -310,20 +310,20 @@ async function startSession() {
 
             // Handle Transcription
             if (data.type === 'transcription') {
-                console.log(`Transcription (${data.role}): ${data.text}`);
+
                 if (data.role === 'user') {
                     currentInput += data.text;
                 } else if (data.role === 'model') {
                     currentOutput += data.text;
                 }
             } else if (data.text && !data.type) {
-                console.log("Legacy Text:", data.text);
+
                 if (data.role === 'model') currentOutput += data.text;
             }
 
             // Handle Turn Complete
             if (data.turnComplete) {
-                console.log("Turn Complete");
+
                 const userText = currentInput.trim();
                 const modelText = currentOutput.trim();
 
@@ -349,12 +349,12 @@ async function startSession() {
         };
 
         ws.onclose = () => {
-            console.log("WS Closed");
+
             cleanup();
         };
 
         ws.onerror = (err) => {
-            console.error("WS Error", err);
+
             errorMessage.innerText = "Connection Failed";
             errorMessage.classList.remove('hidden');
             cleanup();
@@ -515,7 +515,7 @@ voiceBtns.forEach(btn => {
 
 // Start loop
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM Loaded. Starting Avatar Init...");
+
     initAvatar();
     animate();
 });

@@ -90,7 +90,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     while True:
                         async for response in session.receive():
                             server_content = response.server_content
-                        # print(f"DEBUG ATTRS: {dir(server_content)}")
+
                             
                             if server_content is None:
                                 continue
@@ -117,7 +117,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                             # Handle Turn Complete
                             if hasattr(server_content, "turn_complete") and server_content.turn_complete:
-                                 print("DEBUG: Turn Complete")
+
                                  await websocket.send_json({"turnComplete": True})
 
                             if hasattr(server_content, "interrupted") and server_content.interrupted:

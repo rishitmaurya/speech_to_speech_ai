@@ -21,7 +21,7 @@ const avatarContainer = document.getElementById('avatar-container');
 let volumeHistory = new Array(20).fill(0); // For smooth visualization
 
 // 3D Logic (Blue Cute Avatar)
-let smileyGroup, mouthIdle, mouthSpeaking, smileyEyes;
+let smileyGroup, mouthIdle, mouthSpeaking, smileyEyes, capTassel;
 
 function initAvatar() {
     if (typeof THREE === 'undefined') {
@@ -133,6 +133,49 @@ function initAvatar() {
     mouthSpeaking.visible = false; // Hidden initially
     smileyGroup.add(mouthSpeaking);
 
+    // 5. Scholar Cap (Mortarboard)
+    const capGroup = new THREE.Group();
+    // Position on top of head
+    capGroup.position.y = 1.3;
+    capGroup.rotation.x = -0.2; // Tilt back
+    capGroup.rotation.z = 0.1; // Tilt side
+    smileyGroup.add(capGroup);
+
+    // Cap Base (Skull cap)
+    const capBaseGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.5, 32);
+    const capMat = new THREE.MeshStandardMaterial({
+        color: 0x222222, // Dark Grey/Black 
+        roughness: 0.6
+    });
+    const capBase = new THREE.Mesh(capBaseGeo, capMat);
+    capGroup.add(capBase);
+
+    // Board (Flat top)
+    const boardGeo = new THREE.BoxGeometry(2.4, 0.1, 2.4);
+    const board = new THREE.Mesh(boardGeo, capMat);
+    board.position.y = 0.25;
+    capGroup.add(board);
+
+    // Tassel Logic (Pivot from side)
+    const tasselPivot = new THREE.Group();
+    tasselPivot.position.set(1.1, 0.3, 0); // Edge of board
+    capGroup.add(tasselPivot);
+    capTassel = tasselPivot; // Save for animation
+
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.3, roughness: 0.4 });
+    const string = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1), goldMat);
+    string.position.y = -0.5; // Hang down
+    tasselPivot.add(string);
+
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.12), goldMat);
+    knot.position.y = -1;
+    tasselPivot.add(knot);
+
+    // Button on top
+    const button = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.1), goldMat);
+    button.position.y = 0.35;
+    capGroup.add(button);
+
     // Handle Resize
     window.addEventListener('resize', onWindowResize, false);
 }
@@ -163,6 +206,13 @@ function animate() {
         smileyGroup.position.y = Math.sin(time * 1.5) * 0.1;
         smileyGroup.rotation.y = Math.sin(time * 0.5) * 0.05;
         smileyGroup.rotation.z = Math.sin(time * 0.3) * 0.02;
+    }
+
+    // Tassel Animation (Physics-ish swing)
+    if (capTassel) {
+        // Swing opposite to head rotation + some gravity lag
+        capTassel.rotation.z = (Math.sin(time * 3) * 0.2) + 0.2; // Swing
+        capTassel.rotation.x = Math.cos(time * 2) * 0.1;
     }
 
     // Mouth Switching Logic
@@ -391,8 +441,8 @@ async function startAudio() {
                 updateVisualizer(rms, isAiSpeaking);
 
                 // Barge-In / Interruption Detection
-                // Lower threshold to 0.03 to catch single words, relying on AEC to kill echo
-                if (isAiSpeaking && rms > 0.03) { // Increased threshold to avoid false positives
+                // Lower threshold to 0.08 to catch single words, relying on AEC to kill echo
+                if (isAiSpeaking && rms > 0.08) { // Increased threshold to avoid false positives
                     // console.log("Interruption detected!");
                     activeSources.forEach(s => s.stop());
                     activeSources.clear();

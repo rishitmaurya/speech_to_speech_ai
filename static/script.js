@@ -17,13 +17,13 @@ let currentInput = "";
 let currentOutput = "";
 
 // 3D Avatar Context
-let scene, camera, renderer, robot, mouth, eyes, eyesContainer;
 const avatarContainer = document.getElementById('avatar-container');
 let volumeHistory = new Array(20).fill(0); // For smooth visualization
 
-// 3D Logic
-function initAvatar() {
+// 3D Logic (Blue Cute Avatar)
+let smileyGroup, mouthIdle, mouthSpeaking, smileyEyes;
 
+function initAvatar() {
     if (typeof THREE === 'undefined') {
         console.error("Three.js is NOT loaded!");
         return;
@@ -33,7 +33,6 @@ function initAvatar() {
         return;
     }
 
-
     // Scene Setup
     scene = new THREE.Scene();
     scene.background = null;
@@ -41,7 +40,7 @@ function initAvatar() {
     // Camera
     camera = new THREE.PerspectiveCamera(50, avatarContainer.offsetWidth / avatarContainer.offsetHeight, 0.1, 1000);
     camera.position.z = 5;
-    camera.position.y = 0.5;
+    camera.position.y = 0;
 
     // Renderer
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -50,91 +49,92 @@ function initAvatar() {
     avatarContainer.appendChild(renderer.domElement);
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 10, 7);
-    scene.add(directionalLight);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    mainLight.position.set(5, 5, 5);
+    scene.add(mainLight);
 
-    const blueLight = new THREE.PointLight(0x3b82f6, 0.8);
-    blueLight.position.set(-5, 0, 5);
-    scene.add(blueLight);
+    // Soft Fill Light
+    const fillLight = new THREE.PointLight(0xFFFFFF, 0.3);
+    fillLight.position.set(-5, 5, 5);
+    scene.add(fillLight);
 
-    // Robot Model (Procedural)
-    robot = new THREE.Group();
-    scene.add(robot);
+    // Group
+    smileyGroup = new THREE.Group();
+    scene.add(smileyGroup);
 
-    // Head
-    const headGeo = new THREE.SphereGeometry(1.2, 32, 32);
-    const headMat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        roughness: 0.2,
-        metalness: 0.1,
-        emissive: 0x111111
+    // 1. Face (Blue Sphere)
+    const faceGeo = new THREE.SphereGeometry(1.6, 64, 64);
+    const faceMat = new THREE.MeshStandardMaterial({
+        color: 0x4FB0FF, // Light Blue
+        roughness: 0.3,
+        metalness: 0.1
     });
-    const head = new THREE.Mesh(headGeo, headMat);
-    robot.add(head);
+    const face = new THREE.Mesh(faceGeo, faceMat);
+    smileyGroup.add(face);
 
-    // Face Container
-    const faceGroup = new THREE.Group();
-    faceGroup.position.z = 1.05; // Slightly in front of head center
-    robot.add(faceGroup);
+    // 2. Eyes (Black Dots)
+    const eyeGeo = new THREE.SphereGeometry(0.18, 32, 32);
+    eyeGeo.scale(1, 1.2, 0.6); // Slightly oval vertically, flattened Z
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
 
-    // Eyes
-    eyesContainer = new THREE.Group();
-    faceGroup.add(eyesContainer);
-
-    const eyeGeo = new THREE.CapsuleGeometry(0.12, 0.15, 4, 8);
-    // Rotate to make pills horizontal? No, vertical pills looked cute.
-    // Let's rely on standard Capsule orientation (Y axis).
-    const eyeMat = new THREE.MeshStandardMaterial({
-        color: 0x000000,
-        emissive: 0x10b981,
-        emissiveIntensity: 2
-    });
+    smileyEyes = [];
 
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.4, 0.2, 0);
-    leftEye.rotation.z = Math.PI / 2; // Horizontal eyes
-    eyesContainer.add(leftEye);
+    leftEye.position.set(-0.6, 0.2, 1.45);
+    leftEye.rotation.x = -0.1;
+    smileyGroup.add(leftEye);
+    smileyEyes.push(leftEye);
 
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(0.4, 0.2, 0);
-    rightEye.rotation.z = Math.PI / 2;
-    eyesContainer.add(rightEye);
+    rightEye.position.set(0.6, 0.2, 1.45);
+    rightEye.rotation.x = -0.1;
+    smileyGroup.add(rightEye);
+    smileyEyes.push(rightEye);
 
-    eyes = [leftEye, rightEye];
-
-    // Mouth
-    const mouthGeo = new THREE.CapsuleGeometry(0.08, 0.3, 4, 8);
-    // mouthGeo.rotateZ(Math.PI / 2); // Horizontal mouth
-    const mouthMat = new THREE.MeshStandardMaterial({
-        color: 0x000000,
-        emissive: 0x10b981,
-        emissiveIntensity: 1
+    // 3. Cheeks (Pink Blush)
+    const cheekGeo = new THREE.SphereGeometry(0.25, 32, 32);
+    cheekGeo.scale(1.2, 0.8, 0.2); // Oval, flat
+    const cheekMat = new THREE.MeshStandardMaterial({
+        color: 0xFF88AA, // Pink
+        opacity: 0.6,
+        transparent: true
     });
-    mouth = new THREE.Mesh(mouthGeo, mouthMat);
-    mouth.position.set(0, -0.3, 0);
-    mouth.rotation.z = Math.PI / 2; // Horizontal
-    faceGroup.add(mouth);
 
-    // Antenna
-    const antStemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.5);
-    const antStemMat = new THREE.MeshStandardMaterial({ color: 0x64748b });
-    const antStem = new THREE.Mesh(antStemGeo, antStemMat);
-    antStem.position.y = 1.45;
-    robot.add(antStem);
+    const leftCheek = new THREE.Mesh(cheekGeo, cheekMat);
+    leftCheek.position.set(-0.9, -0.1, 1.35);
+    leftCheek.rotation.z = 0.2;
+    smileyGroup.add(leftCheek);
 
-    const antBulbGeo = new THREE.SphereGeometry(0.08);
-    const antBulbMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 2 });
-    const antBulb = new THREE.Mesh(antBulbGeo, antBulbMat);
-    antBulb.position.y = 0.25;
-    antStem.add(antBulb);
+    const rightCheek = new THREE.Mesh(cheekGeo, cheekMat);
+    rightCheek.position.set(0.9, -0.1, 1.35);
+    rightCheek.rotation.z = -0.2;
+    smileyGroup.add(rightCheek);
+
+
+    // 4. Mouth System (Idle vs Speaking)
+
+    // A. Idle Smile (Torus section)
+    // Radius 0.3, Tube 0.04, RadialSeg 8, TubSeg 32, Arc PI (semicircle)
+    const smileGeo = new THREE.TorusGeometry(0.3, 0.04, 16, 32, Math.PI * 0.8);
+    const mouthColor = new THREE.MeshStandardMaterial({ color: 0x221111 });
+    mouthIdle = new THREE.Mesh(smileGeo, mouthColor);
+    mouthIdle.position.set(0, -0.3, 1.52);
+    mouthIdle.rotation.z = Math.PI + (Math.PI * 0.1); // Rotate to be a smile (u shape)
+    smileyGroup.add(mouthIdle);
+
+    // B. Speaking Mouth (Circle/Capsule)
+    const speakGeo = new THREE.SphereGeometry(0.2, 32, 32);
+    speakGeo.scale(1, 1, 0.5);
+    mouthSpeaking = new THREE.Mesh(speakGeo, mouthColor);
+    mouthSpeaking.position.set(0, -0.4, 1.55);
+    mouthSpeaking.visible = false; // Hidden initially
+    smileyGroup.add(mouthSpeaking);
 
     // Handle Resize
     window.addEventListener('resize', onWindowResize, false);
-
 }
 
 function onWindowResize() {
@@ -156,48 +156,40 @@ function animate() {
     if (!renderer || !scene || !camera) return;
 
     const time = Date.now() * 0.001;
-    // const currentVol = volumeHistory[volumeHistory.length - 1] || 0;
-    // Smooth volume
     const currentVol = volumeHistory.reduce((a, b) => a + b, 0) / volumeHistory.length;
 
-    // Idle Animation (Bobbing)
-    if (robot) {
-        robot.position.y = Math.sin(time * 2) * 0.1;
-        robot.rotation.y = Math.sin(time * 0.5) * 0.05;
+    if (smileyGroup) {
+        // Bounce / Float
+        smileyGroup.position.y = Math.sin(time * 1.5) * 0.1;
+        smileyGroup.rotation.y = Math.sin(time * 0.5) * 0.05;
+        smileyGroup.rotation.z = Math.sin(time * 0.3) * 0.02;
     }
 
-    // Reaction to volume
-    if (mouth) {
-        let intensity = Math.min(currentVol * 10, 1.5);
-        if (isAiSpeaking && currentVol > 0.01) {
-            // Open mouth
-            mouth.scale.set(1 + intensity * 0.5, 1 + intensity * 2, 1);
+    // Mouth Switching Logic
+    let isSpeakingNow = isAiSpeaking && currentVol > 0.01;
+
+    if (mouthIdle && mouthSpeaking) {
+        if (isSpeakingNow) {
+            mouthIdle.visible = false;
+            mouthSpeaking.visible = true;
+            // Animate Speaking Mouth
+            let intensity = Math.min(currentVol * 8, 1.2);
+            mouthSpeaking.scale.set(0.8 + intensity * 0.2, 0.8 + intensity * 0.8, 0.5);
         } else {
-            // Idle
-            mouth.scale.set(1, 1, 1);
+            mouthIdle.visible = true;
+            mouthSpeaking.visible = false;
         }
     }
 
-    // Eye Color State
-    if (eyes && eyes.length > 0) {
-        const targetColor = (status === 'CONNECTED' && isAiSpeaking) ? 0x10b981 : // Speaking: Green
-            (status === 'CONNECTED') ? 0x3b82f6 : // Listening: Blue
-                0x64748b; // Disconnected: Grey
-
-        eyes.forEach(eye => {
-            eye.material.emissive.setHex(targetColor);
-
-            // Blink
-            if (Math.random() > 0.995) {
-                eye.scale.y = 0.1;
-                eye.scale.x = 0.1; // Squint
-            } else {
-                eye.scale.y = 1;
-                eye.scale.x = 1;
-            }
-        });
-
-        if (mouth) mouth.material.emissive.setHex(targetColor);
+    // Proper Blinking
+    // Blink every 3-5 seconds
+    if (smileyEyes) {
+        const blinkTime = time % 4; // 4 second cycle
+        if (blinkTime > 3.85) { // Last 150ms = blink
+            smileyEyes.forEach(e => e.scale.y = 0.1);
+        } else {
+            smileyEyes.forEach(e => e.scale.y = 1.2);
+        }
     }
 
     renderer.render(scene, camera);

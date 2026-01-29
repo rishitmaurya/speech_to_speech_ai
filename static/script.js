@@ -303,7 +303,6 @@ async function startSession() {
         ws.onmessage = async (event) => {
             const data = JSON.parse(event.data);
 
-
             if (data.audio) {
                 playAudio(data.audio);
             }
@@ -373,12 +372,21 @@ async function startAudio() {
     outputAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE_OUT });
 
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                sampleRate: SAMPLE_RATE_IN,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
 
         if (!inputAudioContext) return; // Cleanup happened during await
 
         const source = inputAudioContext.createMediaStreamSource(stream);
-        scriptProcessor = inputAudioContext.createScriptProcessor(4096, 1, 1);
+        // Reduce buffer size to 2048 for lower latency (approx 128ms at 16kHz)
+        scriptProcessor = inputAudioContext.createScriptProcessor(2048, 1, 1);
 
         scriptProcessor.onaudioprocess = (e) => {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -389,6 +397,15 @@ async function startAudio() {
                 for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
                 const rms = Math.sqrt(sum / inputData.length);
                 updateVisualizer(rms, isAiSpeaking);
+
+                // Barge-In / Interruption Detection
+                // If AI is speaking and user input is loud enough, stop AI
+                if (isAiSpeaking && rms > 0.1) { // Increased threshold to avoid false positives
+                    // console.log("Interruption detected!");
+                    activeSources.forEach(s => s.stop());
+                    activeSources.clear();
+                    isAiSpeaking = false;
+                }
 
                 // Conversion to Int16 for Gemini
                 const int16 = new Int16Array(inputData.length);

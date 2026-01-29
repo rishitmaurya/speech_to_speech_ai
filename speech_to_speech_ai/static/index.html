@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidya AI - Live Speech</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css?v=tassel_front">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="brand">
+                <div class="logo">
+                    <span>🎙️</span>
+                </div>
+                <div class="brand-text">
+                    <h1>Vidya</h1>
+                    <p>Live Speech API</p>
+                </div>
+            </div>
+            <div class="status-badge">
+                <div id="status-dot" class="status-dot disconnected"></div>
+                <span id="status-text">DISCONNECTED</span>
+            </div>
+        </header>
+
+        <main style="justify-content: center;">
+            <!-- Left Panel: Interaction -->
+            <div class="interaction-panel">
+                <div class="visualizer-container" id="avatar-container">
+                    <!-- 3D Scene Injected Here -->
+                </div>
+
+                <div class="controls">
+                    <div class="action-button-container">
+                        <button id="start-btn" class="btn btn-primary">
+                            <span class="btn-text">Start Conversation</span>
+                            <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </button>
+                        <button id="stop-btn" class="btn btn-danger hidden">
+                            <div class="pulse-dot"></div>
+                            Disconnect
+                        </button>
+                    </div>
+
+                    <div class="voice-selector">
+                        <label>AI Voice Persona</label>
+                        <div class="voice-grid">
+                            <button class="voice-btn active" data-voice="Zephyr">Zephyr</button>
+                            <button class="voice-btn" data-voice="Puck">Puck</button>
+                            <button class="voice-btn" data-voice="Charon">Charon</button>
+                            <button class="voice-btn" data-voice="Kore">Kore</button>
+                            <button class="voice-btn" data-voice="Fenrir">Fenrir</button>
+                        </div>
+                    </div>
+                    <div id="error-message" class="error-message hidden"
+                        style="margin-top: 1rem; text-align: center; color: #ff6b6b;"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: History REMOVED -->
+            <!-- <div class="history-panel"> ... </div> -->
+        </main>
+
+        <footer>
+            <p>© 2025 Vidya Intelligent Systems</p>
+            <div class="footer-links">
+                <span>Low Latency Core</span>
+                <span>Neural Voice Eng</span>
+            </div>
+        </footer>
+    </div>
+    <script src="/static/script.js?v=tassel_front"></script>
+</body>
+
+</html>

@@ -50,6 +50,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     # Configuration for Gemini Live
     # Reverted to AUDIO only because TEXT modality causes immediate connection closure with this model.
+    # Configuration for Gemini Live
     config = LiveConnectConfig(
         response_modalities=[Modality.AUDIO],
         speech_config=SpeechConfig(
@@ -59,7 +60,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 )
             )
         ),
-        system_instruction='You are Echo, a highly empathetic and expressive AI companion. Your voice should reflect natural human emotions—be warm, enthusiastic, curious, or gentle. Use human-like fillers (um, ah, oh) occasionally. You are engaged in a real-time voice conversation. ALWAYS speak in English. Keep responses fluid and natural.',
+        system_instruction='You are Echo. Listen effectively. When the user speaks, they may interrupt you. If you hear them speak, stop immediately and address them. Make sure to speak in a tone in which the user is speaking with you. Your output must be concise. ALWAYS speak in English (en-US). Do not hallucinate other languages.',
         input_audio_transcription={},  # Enable input transcription
         output_audio_transcription={}, # Enable output transcription
     )
@@ -68,6 +69,9 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             
+            # Send initial greeting prompt to the model
+            await session.send(input="Hello! Greet the user enthusiastically to start the conversation.", end_of_turn=True)
+
             async def send_to_gemini():
                 try:
                     while True:

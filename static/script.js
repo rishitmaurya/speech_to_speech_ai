@@ -377,8 +377,8 @@ async function startAudio() {
         if (!inputAudioContext) return; // Cleanup happened during await
 
         const source = inputAudioContext.createMediaStreamSource(stream);
-        // Reduce buffer size to 2048 for lower latency (approx 128ms at 16kHz)
-        scriptProcessor = inputAudioContext.createScriptProcessor(2048, 1, 1);
+        // Reduce buffer size to 1024 for ultra-low latency (~64ms)
+        scriptProcessor = inputAudioContext.createScriptProcessor(1024, 1, 1);
 
         scriptProcessor.onaudioprocess = (e) => {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -391,8 +391,8 @@ async function startAudio() {
                 updateVisualizer(rms, isAiSpeaking);
 
                 // Barge-In / Interruption Detection
-                // If AI is speaking and user input is loud enough, stop AI
-                if (isAiSpeaking && rms > 0.1) { // Increased threshold to avoid false positives
+                // Lower threshold to 0.03 to catch single words, relying on AEC to kill echo
+                if (isAiSpeaking && rms > 0.03) { // Increased threshold to avoid false positives
                     // console.log("Interruption detected!");
                     activeSources.forEach(s => s.stop());
                     activeSources.clear();

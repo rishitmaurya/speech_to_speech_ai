@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EchoSphere AI - Live Speech</title>
+    <title>Vidya AI - Live Speech</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -17,7 +18,7 @@
                     <span>🎙️</span>
                 </div>
                 <div class="brand-text">
-                    <h1>EchoSphere</h1>
+                    <h1>Vidya</h1>
                     <p>Live Speech API</p>
                 </div>
             </div>
@@ -27,7 +28,7 @@
             </div>
         </header>
 
-        <main>
+        <main style="justify-content: center;">
             <!-- Left Panel: Interaction -->
             <div class="interaction-panel">
                 <div class="visualizer-container" id="avatar-container">
@@ -59,39 +60,24 @@
                             <button class="voice-btn" data-voice="Fenrir">Fenrir</button>
                         </div>
                     </div>
+                    <div id="error-message" class="error-message hidden"
+                        style="margin-top: 1rem; text-align: center; color: #ff6b6b;"></div>
                 </div>
             </div>
 
-            <!-- Right Panel: History -->
-            <div class="history-panel">
-                <div class="history-header">
-                    <h3>Conversation</h3>
-                    <button id="clear-btn">Clear All</button>
-                </div>
-
-                <div id="messages" class="messages-container custom-scrollbar">
-                    <div id="empty-state" class="empty-state">
-                        <div class="empty-icon">
-                            <span>⏳</span>
-                        </div>
-                        <p>Your conversation will be transcribed here in real-time.</p>
-                    </div>
-                    <!-- Messages will be injected here -->
-                </div>
-
-                <div id="error-message" class="error-message hidden"></div>
-            </div>
+            <!-- Right Panel: History REMOVED -->
+            <!-- <div class="history-panel"> ... </div> -->
         </main>
 
         <footer>
-            <p>© 2025 EchoSphere Intelligent Systems</p>
+            <p>© 2025 Vidya Intelligent Systems</p>
             <div class="footer-links">
                 <span>Low Latency Core</span>
                 <span>Neural Voice Eng</span>
             </div>
         </footer>
     </div>
-    <script src="/static/script.js?v=scholar"></script>
+    <script src="/static/script.js?v=hollow_loop"></script>
 </body>
 
 </html>

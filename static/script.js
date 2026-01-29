@@ -1,3 +1,5 @@
+console.log("Vidya Script Initializing...");
+
 // Constants
 const SAMPLE_RATE_IN = 16000;
 const SAMPLE_RATE_OUT = 24000;
@@ -8,6 +10,7 @@ let selectedVoice = 'Zephyr';
 let ws = null;
 let inputAudioContext = null;
 let outputAudioContext = null;
+let outputAnalyser = null;
 let scriptProcessor = null;
 let activeSources = new Set();
 let nextStartTime = 0;
@@ -21,7 +24,7 @@ const avatarContainer = document.getElementById('avatar-container');
 let volumeHistory = new Array(20).fill(0); // For smooth visualization
 
 // 3D Logic (Blue Cute Avatar)
-let smileyGroup, mouthIdle, mouthSpeaking, smileyEyes, capTassel;
+let smileyGroup, mouthIdle, mouthSpeaking, topLip, bottomLip, smileyEyes, capTassel;
 
 function initAvatar() {
     if (typeof THREE === 'undefined') {
@@ -44,6 +47,10 @@ function initAvatar() {
 
     // Renderer
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    console.log(`Avatar Container Size: ${avatarContainer.offsetWidth}x${avatarContainer.offsetHeight}`);
+    if (avatarContainer.offsetWidth === 0 || avatarContainer.offsetHeight === 0) {
+        console.warn("Avatar Container has 0 size! Check CSS.");
+    }
     renderer.setSize(avatarContainer.offsetWidth, avatarContainer.offsetHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     avatarContainer.appendChild(renderer.domElement);
@@ -94,25 +101,6 @@ function initAvatar() {
     smileyGroup.add(rightEye);
     smileyEyes.push(rightEye);
 
-    // 3. Cheeks (Pink Blush)
-    const cheekGeo = new THREE.SphereGeometry(0.25, 32, 32);
-    cheekGeo.scale(1.2, 0.8, 0.2); // Oval, flat
-    const cheekMat = new THREE.MeshStandardMaterial({
-        color: 0xFF88AA, // Pink
-        opacity: 0.6,
-        transparent: true
-    });
-
-    const leftCheek = new THREE.Mesh(cheekGeo, cheekMat);
-    leftCheek.position.set(-0.9, -0.1, 1.35);
-    leftCheek.rotation.z = 0.2;
-    smileyGroup.add(leftCheek);
-
-    const rightCheek = new THREE.Mesh(cheekGeo, cheekMat);
-    rightCheek.position.set(0.9, -0.1, 1.35);
-    rightCheek.rotation.z = -0.2;
-    smileyGroup.add(rightCheek);
-
 
     // 4. Mouth System (Idle vs Speaking)
 
@@ -125,12 +113,12 @@ function initAvatar() {
     mouthIdle.rotation.z = Math.PI + (Math.PI * 0.1); // Rotate to be a smile (u shape)
     smileyGroup.add(mouthIdle);
 
-    // B. Speaking Mouth (Circle/Capsule)
-    const speakGeo = new THREE.SphereGeometry(0.2, 32, 32);
-    speakGeo.scale(1, 1, 0.5);
-    mouthSpeaking = new THREE.Mesh(speakGeo, mouthColor);
+    // B. Speaking Mouth (Hollow Circle / ring)
+    const mouthSpeakingGeo = new THREE.TorusGeometry(0.2, 0.04, 16, 32);
+    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x331111 });
+    mouthSpeaking = new THREE.Mesh(mouthSpeakingGeo, mouthMat);
     mouthSpeaking.position.set(0, -0.4, 1.55);
-    mouthSpeaking.visible = false; // Hidden initially
+    mouthSpeaking.visible = false;
     smileyGroup.add(mouthSpeaking);
 
     // 5. Scholar Cap (Mortarboard)
@@ -178,6 +166,7 @@ function initAvatar() {
 
     // Handle Resize
     window.addEventListener('resize', onWindowResize, false);
+    console.log("Avatar Initialization Complete. Scene Objects:", scene.children.length);
 }
 
 function onWindowResize() {
@@ -193,14 +182,19 @@ function updateVisualizer(volume, aiActive) {
     volumeHistory.shift();
 }
 
+let firstFrame = true;
 function animate() {
     requestAnimationFrame(animate);
+    if (firstFrame) {
+        console.log("Animation Loop Started");
+        firstFrame = false;
+    }
 
     if (!renderer || !scene || !camera) return;
 
     const time = Date.now() * 0.001;
-    const currentVol = volumeHistory.reduce((a, b) => a + b, 0) / volumeHistory.length;
 
+    // 1. Update Physics / Idle Movement
     if (smileyGroup) {
         // Bounce / Float
         smileyGroup.position.y = Math.sin(time * 1.5) * 0.1;
@@ -215,23 +209,47 @@ function animate() {
         capTassel.rotation.x = Math.cos(time * 2) * 0.1;
     }
 
-    // Mouth Switching Logic
-    let isSpeakingNow = isAiSpeaking && currentVol > 0.01;
+    // 2. AI Output Volume Analysis (Updates volumeHistory)
+    if (isAiSpeaking && outputAnalyser) {
+        const dataArray = new Uint8Array(outputAnalyser.frequencyBinCount);
+        outputAnalyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        const normVol = avg / 255;
+        updateVisualizer(normVol, true);
+    }
 
+    // 3. Calculate Current Volume (AFTER update)
+    const currentVol = volumeHistory.reduce((a, b) => a + b, 0) / volumeHistory.length;
+
+    // 4. Mouth Switching Logic
+    // REFINED: Hollow Circle -> Line -> Hollow Circle Loop
     if (mouthIdle && mouthSpeaking) {
-        if (isSpeakingNow) {
+        if (isAiSpeaking) {
             mouthIdle.visible = false;
             mouthSpeaking.visible = true;
-            // Animate Speaking Mouth
-            let intensity = Math.min(currentVol * 8, 1.2);
-            mouthSpeaking.scale.set(0.8 + intensity * 0.2, 0.8 + intensity * 0.8, 0.5);
+
+            // Loop Animation: Circle (1.0) -> Line (0.1) -> Circle (1.0)
+            // Speed: 8 seems fast enough for speech
+            const loopSpeed = 8;
+
+            // scaleY goes from 0.1 to 1.0
+            // Math.sin oscillates -1 to 1. 
+            // We want positive 0.1 to 1.0 cycle. 
+            // Math.abs(Math.sin) gives 0 to 1 bounces.
+
+            const scaleY = 0.1 + 0.9 * Math.abs(Math.sin(time * loopSpeed));
+
+            mouthSpeaking.scale.set(1, scaleY, 1);
+
         } else {
             mouthIdle.visible = true;
             mouthSpeaking.visible = false;
         }
     }
 
-    // Proper Blinking
+    // 5. Proper Blinking
     // Blink every 3-5 seconds
     if (smileyEyes) {
         const blinkTime = time % 4; // 4 second cycle
@@ -301,7 +319,7 @@ function setStatus(newStatus) {
 function addMessage(role, text) {
 
     if (!messagesContainer) {
-        console.error("Messages container not found!");
+        // console.warn("Messages container not found - Chat UI is disabled.");
         return;
     }
     emptyState.style.display = 'none';
@@ -495,9 +513,18 @@ async function playAudio(base64Data) {
     const buffer = outputAudioContext.createBuffer(1, float32.length, SAMPLE_RATE_OUT);
     buffer.getChannelData(0).set(float32);
 
+    // Initialize Analyser if needed
+    if (!outputAnalyser) {
+        outputAnalyser = outputAudioContext.createAnalyser();
+        outputAnalyser.fftSize = 256;
+    }
+
     const source = outputAudioContext.createBufferSource();
     source.buffer = buffer;
-    source.connect(outputAudioContext.destination);
+
+    // Connect Chain: Source -> Analyser -> Destination
+    source.connect(outputAnalyser);
+    outputAnalyser.connect(outputAudioContext.destination);
 
     const currentTime = outputAudioContext.currentTime;
     if (nextStartTime < currentTime) nextStartTime = currentTime;
@@ -560,21 +587,33 @@ function updateVisualizer(volume, aiActive) {
 // ...
 
 // Initialization
-startBtn.addEventListener('click', startSession);
-stopBtn.addEventListener('click', cleanup);
-clearBtn.addEventListener('click', () => { messagesContainer.innerHTML = ''; emptyState.style.display = 'flex'; });
-
-voiceBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        voiceBtns.forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        selectedVoice = e.target.dataset.voice;
+if (startBtn) startBtn.addEventListener('click', startSession);
+if (stopBtn) stopBtn.addEventListener('click', cleanup);
+if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+        if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'flex';
+        }
     });
-});
+}
+
+if (voiceBtns && voiceBtns.length > 0) {
+    voiceBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            console.log("Voice selected:", e.target.dataset.voice);
+            voiceBtns.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            selectedVoice = e.target.dataset.voice;
+        });
+    });
+} else {
+    console.warn("No voice buttons found!");
+}
 
 // Start loop
 document.addEventListener('DOMContentLoaded', () => {
-
+    console.log("DOM Loaded, starting Avatar...");
     initAvatar();
     animate();
 });

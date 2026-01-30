@@ -159,6 +159,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100%;
         }
 
         .visualizer-container {
@@ -170,6 +171,7 @@
             position: relative;
             margin-bottom: 2rem;
             /* Height removed to let aspect-ratio work */
+            cursor: pointer;
         }
 
         canvas {
@@ -530,12 +532,7 @@
 
 <body>
     <div class="container">
-        <header>
-            <div class="status-badge">
-                <div id="status-dot" class="status-dot disconnected"></div>
-                <span id="status-text">DISCONNECTED</span>
-            </div>
-        </header>
+
 
         <main style="justify-content: center;">
             <!-- Left Panel: Interaction -->
@@ -545,19 +542,7 @@
                 </div>
 
                 <div class="controls">
-                    <div class="action-button-container">
-                        <button id="start-btn" class="btn btn-primary">
-                            <span class="btn-text">Start Conversation</span>
-                            <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
-                                    d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                            </svg>
-                        </button>
-                        <button id="stop-btn" class="btn btn-danger hidden">
-                            <div class="pulse-dot"></div>
-                            Disconnect
-                        </button>
-                    </div>
+                    <!-- Buttons Removed for Click-to-Connect Interaction -->
 
                     <div id="error-message" class="error-message hidden"
                         style="margin-top: 1rem; text-align: center; color: #ff6b6b;"></div>
@@ -568,12 +553,7 @@
             <!-- <div class="history-panel"> ... </div> -->
         </main>
 
-        <footer>
-            <p>© 2026 Vidya Intelligent Systems</p>
-            <div class="footer-links">
-                <span>Note : Vidya can be wrong sometimes</span>
-            </div>
-        </footer>
+
     </div>
     <script>
         console.log("Vidya Script Initializing...");
@@ -870,8 +850,7 @@
         // DOM Elements
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
-        const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
+        // Buttons removed
         const messagesContainer = document.getElementById('messages');
         const emptyState = document.getElementById('empty-state');
         const errorMessage = document.getElementById('error-message');
@@ -902,19 +881,16 @@
         // UI Updates
         function setStatus(newStatus) {
             status = newStatus;
-            statusText.innerText = status;
+            if (statusText) statusText.innerText = status;
 
             // Reset classes
-            statusDot.className = 'status-dot';
-            statusDot.classList.add(status.toLowerCase());
+            if (statusDot) {
+                statusDot.className = 'status-dot';
+                statusDot.classList.add(status.toLowerCase());
+            }
 
             if (status === 'CONNECTED') {
-                startBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
                 errorMessage.classList.add('hidden');
-            } else {
-                startBtn.classList.remove('hidden');
-                stopBtn.classList.add('hidden');
             }
 
             voiceBtns.forEach(btn => btn.disabled = (status !== 'DISCONNECTED'));
@@ -1203,9 +1179,18 @@
         // Authorization
         // ...
 
+        function toggleConnection() {
+            if (status === 'DISCONNECTED') {
+                startSession();
+            } else {
+                cleanup();
+            }
+        }
+
         // Initialization
-        if (startBtn) startBtn.addEventListener('click', startSession);
-        if (stopBtn) stopBtn.addEventListener('click', cleanup);
+        if (avatarContainer) {
+            avatarContainer.addEventListener('click', toggleConnection);
+        }
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
                 if (messagesContainer) {

@@ -20,11 +20,16 @@ load_dotenv()
 app = FastAPI()
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Use absolute path to avoid deployment issues
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+else:
+    print(f"WARNING: Static directory not found at {static_dir}")
 
 @app.get("/")
 async def get():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(static_dir, "index.html"))
 
 MODEL = "gemini-2.5-flash-native-audio-latest"
 
@@ -60,7 +65,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 )
             )
         ),
-        system_instruction='You are Echo. Listen effectively. When the user speaks, they may interrupt you. If you hear them speak, stop immediately and address them. Make sure to speak in a tone in which the user is speaking with you. Your output must be concise. ALWAYS speak in English (en-US). Do not hallucinate other languages.',
+        system_instruction='You are Vidya. Listen effectively. When the user speaks, they may interrupt you. If you hear them speak, stop immediately and address them. Make sure to speak in a tone in which the user is speaking with you. Your output must be concise. IMPORTANT: Detect the language the user is speaking and respond in that EXACT SAME language. If the user speaks Hindi, speak Hindi. If the user speaks Spanish, speak Spanish. Do not default to English.',
         input_audio_transcription={},  # Enable input transcription
         output_audio_transcription={}, # Enable output transcription
     )

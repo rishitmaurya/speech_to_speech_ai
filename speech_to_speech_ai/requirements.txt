@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-websockets
-google-genai
-python-dotenv
-jinja2

@@ -7,21 +7,530 @@
     <title>Vidya AI - Live Speech</title>
     <link rel="icon" href="data:;base64,iVBORw0KGgo=">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        :root {
+            /* Light Theme Palette based on Orange (#FF8C00) */
+            --bg-color: #fff7ed;
+            /* Orange-50 (Cream) */
+            --text-color: #334155;
+            /* Slate-700 */
+            --slate-500: #94a3b8;
+            --slate-600: #cbd5e1;
+            /* Light borders */
+            --slate-800: #e2e8f0;
+            /* Soft gray */
+            --slate-900: #f8fafc;
+            /* Near white */
+
+            --primary-color: #f97316;
+            /* Orange-500 */
+            --primary-glow: rgba(249, 115, 22, 0.2);
+
+            --blue-600: #f97316;
+            /* REPLACING Blue with Orange */
+            --blue-500: #fb923c;
+
+            --emerald-500: #10b981;
+            --red-500: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 2rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo {
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: var(--blue-600);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);
+        }
+
+        .logo span {
+            font-size: 1.25rem;
+        }
+
+        .brand-text h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            color: #0f172a;
+            /* Dark Slate for Light Mode */
+        }
+
+        .brand-text p {
+            color: var(--primary-color);
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-weight: 900;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background-color: #ffffff;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 1px solid var(--slate-600);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+        }
+
+        .status-dot.connected {
+            background-color: var(--emerald-500);
+            box-shadow: 0 0 8px var(--emerald-500);
+        }
+
+        .status-dot.connecting {
+            background-color: #eab308;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .status-dot.disconnected {
+            background-color: var(--slate-600);
+        }
+
+        #status-text {
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+        }
+
+        /* Main Layout */
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 2rem;
+        }
+
+        /* @media (min-width: 1024px) { ... } REMOVED */
+
+        /* Left components */
+        .interaction-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .visualizer-container {
+            width: 100%;
+            max-width: 28rem;
+            /* Back to original manageable size */
+            aspect-ratio: 3/4;
+            /* Portrait mode */
+            position: relative;
+            margin-bottom: 2rem;
+            /* Height removed to let aspect-ratio work */
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            width: 100%;
+            max-width: 24rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .action-button-container {
+            display: flex;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 20px 25px -5px rgba(249, 115, 22, 0.25);
+            border: 1px solid transparent;
+        }
+
+        .btn-primary:hover {
+            background-color: #ea580c;
+            /* Darker orange on hover */
+        }
+
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+
+        .btn-danger {
+            background-color: #fee2e2;
+            /* Red-100 */
+            color: #b91c1c;
+            /* Red-700 */
+            border: 1px solid #ef4444;
+            /* Red-500 */
+            box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
+        }
+
+        .btn-danger:hover {
+            background-color: #fca5a5;
+            /* Red-300 */
+            color: #7f1d1d;
+            box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.2);
+        }
+
+        .pulse-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: var(--red-500);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Voice Selector */
+        .voice-selector {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 1.5rem;
+            border: 1px solid var(--slate-800);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            /* Softer shadow */
+        }
+
+        .voice-selector label {
+            display: block;
+            font-size: 0.625rem;
+            font-weight: 900;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+            padding-left: 0.25rem;
+        }
+
+        .voice-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+        }
+
+        .voice-btn {
+            background-color: var(--slate-900);
+            /* Near white */
+            color: var(--slate-500);
+            border: 1px solid var(--slate-600);
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .voice-btn:hover {
+            color: var(--text-color);
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.1);
+        }
+
+        .voice-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            box-shadow: 0 10px 15px -3px rgba(249, 115, 22, 0.3);
+        }
+
+        .voice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* History Panel */
+        .history-panel {
+            height: 600px;
+            background-color: rgba(255, 255, 255, 0.6);
+            border-radius: 2.5rem;
+            border: 1px solid rgba(251, 146, 60, 0.2);
+            /* Orange tinge border */
+            backdrop-filter: blur(12px);
+            display: flex;
+            /* Ensure flex is kept */
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(249, 115, 22, 0.05);
+        }
+
+        .history-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-header h3 {
+            font-size: 0.75rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+        }
+
+        #clear-btn {
+            background: none;
+            border: none;
+            color: var(--slate-600);
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+        }
+
+        #clear-btn:hover {
+            color: #94a3b8;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .empty-state {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--slate-600);
+            gap: 1rem;
+        }
+
+        .empty-icon {
+            width: 4rem;
+            height: 4rem;
+            border-radius: 50%;
+            border: 2px dashed var(--slate-800);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .empty-state p {
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-align: center;
+            max-width: 180px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.model {
+            align-items: flex-start;
+        }
+
+        .bubble {
+            max-width: 90%;
+            padding: 0.75rem 1.25rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .message.user .bubble {
+            background-color: #fff7ed;
+            /* Very light orange */
+            color: #9a3412;
+            /* Dark Orange Text */
+            border: 1px solid #fed7aa;
+            /* Orange-200 */
+            border-top-right-radius: 0;
+        }
+
+        .message.model .bubble {
+            background-color: #ffffff;
+            color: #334155;
+            border-bottom-left-radius: 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        .meta {
+            margin-top: 0.5rem;
+            font-size: 0.5625rem;
+            font-weight: 900;
+            color: var(--slate-600);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .error-message {
+            margin: 1rem;
+            padding: 1rem;
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 1rem;
+            color: #f87171;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        footer p {
+            font-size: 0.625rem;
+            font-weight: 700;
+            color: var(--slate-600);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.625rem;
+            font-weight: 900;
+            color: var(--slate-500);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--slate-800);
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--slate-600);
+        }
+
+        /* Animations */
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
         <header>
-            <div class="brand">
-                <div class="logo">
-                    <span>🎙️</span>
-                </div>
-                <div class="brand-text">
-                    <h1>Vidya</h1>
-                    <p>Live Speech API</p>
-                </div>
-            </div>
             <div class="status-badge">
                 <div id="status-dot" class="status-dot disconnected"></div>
                 <span id="status-text">DISCONNECTED</span>
@@ -50,16 +559,6 @@
                         </button>
                     </div>
 
-                    <div class="voice-selector">
-                        <label>AI Voice Persona</label>
-                        <div class="voice-grid">
-                            <button class="voice-btn active" data-voice="Zephyr">Zephyr</button>
-                            <button class="voice-btn" data-voice="Puck">Puck</button>
-                            <button class="voice-btn" data-voice="Charon">Charon</button>
-                            <button class="voice-btn" data-voice="Kore">Kore</button>
-                            <button class="voice-btn" data-voice="Fenrir">Fenrir</button>
-                        </div>
-                    </div>
                     <div id="error-message" class="error-message hidden"
                         style="margin-top: 1rem; text-align: center; color: #ff6b6b;"></div>
                 </div>
@@ -70,14 +569,672 @@
         </main>
 
         <footer>
-            <p>© 2025 Vidya Intelligent Systems</p>
+            <p>© 2026 Vidya Intelligent Systems</p>
             <div class="footer-links">
-                <span>Low Latency Core</span>
-                <span>Neural Voice Eng</span>
+                <span>Note : Vidya can be wrong sometimes</span>
             </div>
         </footer>
     </div>
-    <script src="/static/script.js?v=hollow_loop"></script>
+    <script>
+        console.log("Vidya Script Initializing...");
+
+        // Constants
+        const SAMPLE_RATE_IN = 16000;
+        const SAMPLE_RATE_OUT = 24000;
+
+        // State
+        let status = 'DISCONNECTED';
+        let selectedVoice = 'Zephyr';
+        let ws = null;
+        let inputAudioContext = null;
+        let outputAudioContext = null;
+        let outputAnalyser = null;
+        let scriptProcessor = null;
+        let activeSources = new Set();
+        let nextStartTime = 0;
+        let isAiSpeaking = false;
+        let stream = null;
+        let currentInput = "";
+        let currentOutput = "";
+
+        // 3D Avatar Context
+        const avatarContainer = document.getElementById('avatar-container');
+        let volumeHistory = new Array(20).fill(0); // For smooth visualization
+
+        // 3D Logic (Blue Cute Avatar)
+        let smileyGroup, mouthIdle, mouthSpeaking, topLip, bottomLip, smileyEyes, capTassel;
+
+        function initAvatar() {
+            if (typeof THREE === 'undefined') {
+                console.error("Three.js is NOT loaded!");
+                return;
+            }
+            if (!avatarContainer) {
+                console.error("Avatar container NOT found!");
+                return;
+            }
+
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = null;
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(50, avatarContainer.offsetWidth / avatarContainer.offsetHeight, 0.1, 1000);
+            camera.position.z = 6.0; // Pulled back significantly
+            camera.position.y = 0.4; // Balanced height
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({
+                alpha: true,
+                antialias: true
+            });
+            console.log(`Avatar Container Size: ${avatarContainer.offsetWidth}x${avatarContainer.offsetHeight}`);
+            if (avatarContainer.offsetWidth === 0 || avatarContainer.offsetHeight === 0) {
+                console.warn("Avatar Container has 0 size! Check CSS.");
+            }
+            renderer.setSize(avatarContainer.offsetWidth, avatarContainer.offsetHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            avatarContainer.appendChild(renderer.domElement);
+
+            // Lighting
+            // Lighting (Brighter Setup)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); // High ambient
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            mainLight.position.set(5, 10, 7);
+            scene.add(mainLight);
+
+            // Spotlight for "Glow" / Sheen
+            const spotLight = new THREE.SpotLight(0xffffff, 1.2);
+            spotLight.position.set(0, 5, 5);
+            spotLight.angle = Math.PI / 6;
+            spotLight.penumbra = 0.5; // Soft edge
+            spotLight.target = smileyGroup; // Follow head
+            scene.add(spotLight);
+
+            // Soft Fill Light
+            const fillLight = new THREE.PointLight(0xFFFFFF, 0.5);
+            fillLight.position.set(-5, 0, 5);
+            scene.add(fillLight);
+
+            // Group
+            smileyGroup = new THREE.Group();
+            scene.add(smileyGroup);
+            spotLight.target = smileyGroup; // Bind target
+
+            // 1. Face (Bright Orange Sphere)
+            const faceGeo = new THREE.SphereGeometry(1.6, 64, 64);
+            const faceMat = new THREE.MeshStandardMaterial({
+                color: 0xFF8C00, // Orange
+                emissive: 0xaa4400, // Self-illuminated inner glow
+                emissiveIntensity: 0.1, // Reduced glow
+                roughness: 0.7, // Matte finish (no sharp reflection)
+                metalness: 0.0 // Plastic/Skin look
+            });
+            const face = new THREE.Mesh(faceGeo, faceMat);
+            smileyGroup.add(face);
+
+            // 2. Eyes (Black Dots)
+            const eyeGeo = new THREE.SphereGeometry(0.18, 32, 32);
+            eyeGeo.scale(1.2, 1.2, 0.6); // Slightly oval vertically, flattened Z
+            const eyeMat = new THREE.MeshStandardMaterial({
+                color: 0x111111
+            });
+
+            smileyEyes = [];
+
+            const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+            leftEye.position.set(-0.6, 0.2, 1.45);
+            leftEye.rotation.x = -0.1;
+            smileyGroup.add(leftEye);
+            smileyEyes.push(leftEye);
+
+            const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+            rightEye.position.set(0.6, 0.2, 1.45);
+            rightEye.rotation.x = -0.1;
+            smileyGroup.add(rightEye);
+            smileyEyes.push(rightEye);
+
+
+            // 4. Mouth System (Idle vs Speaking)
+
+            // A. Idle Smile (Torus section)
+            // Radius 0.3, Tube 0.04, RadialSeg 8, TubSeg 32, Arc PI (semicircle)
+            const smileGeo = new THREE.TorusGeometry(0.3, 0.04, 16, 32, Math.PI * 0.8);
+            const mouthColor = new THREE.MeshStandardMaterial({
+                color: 0x221111
+            });
+            mouthIdle = new THREE.Mesh(smileGeo, mouthColor);
+            mouthIdle.position.set(0, -0.3, 1.52);
+            mouthIdle.rotation.z = Math.PI + (Math.PI * 0.1); // Rotate to be a smile (u shape)
+            smileyGroup.add(mouthIdle);
+
+            // B. Speaking Mouth (Hollow Circle / ring)
+            const mouthSpeakingGeo = new THREE.TorusGeometry(0.2, 0.04, 16, 32);
+            const mouthMat = new THREE.MeshStandardMaterial({
+                color: 0x331111
+            });
+            mouthSpeaking = new THREE.Mesh(mouthSpeakingGeo, mouthMat);
+            mouthSpeaking.position.set(0, -0.4, 1.55);
+            mouthSpeaking.visible = false;
+            smileyGroup.add(mouthSpeaking);
+
+            // 5. Scholar Cap (Mortarboard)
+            const capGroup = new THREE.Group();
+            // Position on top of head
+            capGroup.position.y = 1.3;
+            capGroup.rotation.x = -0.2; // Tilt back
+            capGroup.rotation.z = 0.1; // Tilt side
+            smileyGroup.add(capGroup);
+
+            // Cap Base (Skull cap)
+            const capBaseGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.5, 32);
+            const capMat = new THREE.MeshStandardMaterial({
+                color: 0x222222, // Dark Grey/Black 
+                roughness: 0.6
+            });
+            const capBase = new THREE.Mesh(capBaseGeo, capMat);
+            capGroup.add(capBase);
+
+            // Board (Flat top)
+            const boardGeo = new THREE.BoxGeometry(2.4, 0.1, 2.4);
+            const board = new THREE.Mesh(boardGeo, capMat);
+            board.position.y = 0.25;
+            capGroup.add(board);
+
+            // Tassel Logic (Pivot from side)
+            const tasselPivot = new THREE.Group();
+            tasselPivot.position.set(1.1, 0.3, 0.8); // Side Front Edge
+            capGroup.add(tasselPivot);
+            capTassel = tasselPivot; // Save for animation
+
+            const goldMat = new THREE.MeshStandardMaterial({
+                color: 0xFFD700,
+                metalness: 0.3,
+                roughness: 0.4
+            });
+            const string = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1), goldMat);
+            string.position.y = -0.5; // Hang down
+            tasselPivot.add(string);
+
+            const knot = new THREE.Mesh(new THREE.SphereGeometry(0.12), goldMat);
+            knot.position.y = -1;
+            tasselPivot.add(knot);
+
+            // Button on top
+            const button = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.1), goldMat);
+            button.position.y = 0.35;
+            capGroup.add(button);
+
+            // Handle Resize
+            window.addEventListener('resize', onWindowResize, false);
+            console.log("Avatar Initialization Complete. Scene Objects:", scene.children.length);
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer || !avatarContainer) return;
+            camera.aspect = avatarContainer.offsetWidth / avatarContainer.offsetHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(avatarContainer.offsetWidth, avatarContainer.offsetHeight);
+        }
+
+        // Visualization Loop
+        function updateVisualizer(volume, aiActive) {
+            volumeHistory.push(volume);
+            volumeHistory.shift();
+        }
+
+        let firstFrame = true;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (firstFrame) {
+                console.log("Animation Loop Started");
+                firstFrame = false;
+            }
+
+            if (!renderer || !scene || !camera) return;
+
+            const time = Date.now() * 0.001;
+
+            // 1. Update Physics / Idle Movement
+            if (smileyGroup) {
+                // Bounce / Float
+                smileyGroup.position.y = Math.sin(time * 1.5) * 0.1;
+                smileyGroup.rotation.y = Math.sin(time * 0.5) * 0.05;
+                smileyGroup.rotation.z = Math.sin(time * 0.3) * 0.02;
+            }
+
+            // Tassel Animation (Physics-ish swing)
+            if (capTassel) {
+                // Swing opposite to head rotation + some gravity lag
+                capTassel.rotation.z = (Math.sin(time * 3) * 0.2) + 0.2; // Swing
+                capTassel.rotation.x = Math.cos(time * 2) * 0.1;
+            }
+
+            // 2. AI Output Volume Analysis (Updates volumeHistory)
+            if (isAiSpeaking && outputAnalyser) {
+                const dataArray = new Uint8Array(outputAnalyser.frequencyBinCount);
+                outputAnalyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                const avg = sum / dataArray.length;
+                const normVol = avg / 255;
+                updateVisualizer(normVol, true);
+            }
+
+            // 3. Calculate Current Volume (AFTER update)
+            const currentVol = volumeHistory.reduce((a, b) => a + b, 0) / volumeHistory.length;
+
+            // 4. Mouth Switching Logic
+            // REFINED: Hollow Circle -> Line -> Hollow Circle Loop
+            if (mouthIdle && mouthSpeaking) {
+                if (isAiSpeaking) {
+                    mouthIdle.visible = false;
+                    mouthSpeaking.visible = true;
+
+                    // Loop Animation: Circle (1.0) -> Line (0.1) -> Circle (1.0)
+                    // Speed: 8 seems fast enough for speech
+                    const loopSpeed = 8;
+
+                    // scaleY goes from 0.1 to 1.0
+                    // Math.sin oscillates -1 to 1. 
+                    // We want positive 0.1 to 1.0 cycle. 
+                    // Math.abs(Math.sin) gives 0 to 1 bounces.
+
+                    const scaleY = 0.1 + 0.9 * Math.abs(Math.sin(time * loopSpeed));
+
+                    mouthSpeaking.scale.set(1.5, scaleY, 1);
+
+                } else {
+                    mouthIdle.visible = true;
+                    mouthSpeaking.visible = false;
+                }
+            }
+
+            // 5. Proper Blinking
+            // Blink every 3-5 seconds
+            if (smileyEyes) {
+                const blinkTime = time % 4; // 4 second cycle
+                if (blinkTime > 3.85) { // Last 150ms = blink
+                    smileyEyes.forEach(e => e.scale.y = 0.1);
+                } else {
+                    smileyEyes.forEach(e => e.scale.y = 1.2);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // DOM Elements
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const messagesContainer = document.getElementById('messages');
+        const emptyState = document.getElementById('empty-state');
+        const errorMessage = document.getElementById('error-message');
+        const voiceBtns = document.querySelectorAll('.voice-btn');
+        const clearBtn = document.getElementById('clear-btn');
+
+        // Utils
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // UI Updates
+        function setStatus(newStatus) {
+            status = newStatus;
+            statusText.innerText = status;
+
+            // Reset classes
+            statusDot.className = 'status-dot';
+            statusDot.classList.add(status.toLowerCase());
+
+            if (status === 'CONNECTED') {
+                startBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+            } else {
+                startBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
+            }
+
+            voiceBtns.forEach(btn => btn.disabled = (status !== 'DISCONNECTED'));
+        }
+
+        function addMessage(role, text) {
+
+            if (!messagesContainer) {
+                // console.warn("Messages container not found - Chat UI is disabled.");
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.dataset.role = role;
+
+            const time = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            div.innerHTML = `
+        <div class="bubble">${text}</div>
+        <span class="meta">${role === 'user' ? 'You' : 'Vidya'} • ${time}</span>
+    `;
+
+            messagesContainer.appendChild(div);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        }
+
+        // Audio Logic
+        async function startSession() {
+            try {
+                setStatus('CONNECTING');
+
+                // WebSocket
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+                ws.onopen = async () => {
+
+                    setStatus('CONNECTED');
+
+                    // Send config
+                    ws.send(JSON.stringify({
+                        voice: selectedVoice
+                    }));
+
+                    // Start Audio
+                    await startAudio();
+                };
+
+                ws.onmessage = async (event) => {
+                    const data = JSON.parse(event.data);
+
+                    if (data.audio) {
+                        playAudio(data.audio);
+                    }
+
+                    // Handle Transcription
+                    if (data.type === 'transcription') {
+
+                        if (data.role === 'user') {
+                            currentInput += data.text;
+                        } else if (data.role === 'model') {
+                            currentOutput += data.text;
+                        }
+                    } else if (data.text && !data.type) {
+
+                        if (data.role === 'model') currentOutput += data.text;
+                    }
+
+                    // Handle Turn Complete
+                    if (data.turnComplete) {
+
+                        const userText = currentInput.trim();
+                        const modelText = currentOutput.trim();
+
+                        if (userText) {
+                            addMessage('user', userText);
+                            currentInput = "";
+                        }
+
+                        if (modelText) {
+                            addMessage('model', modelText);
+                            currentOutput = "";
+                        }
+                    }
+
+                    if (data.interrupted) {
+                        // Clear buffers and stop audio
+                        currentInput = "";
+                        currentOutput = "";
+                        activeSources.forEach(s => s.stop());
+                        activeSources.clear();
+                        isAiSpeaking = false;
+                    }
+                };
+
+                ws.onclose = () => {
+
+                    cleanup();
+                };
+
+                ws.onerror = (err) => {
+
+                    errorMessage.innerText = "Connection Failed";
+                    errorMessage.classList.remove('hidden');
+                    cleanup();
+                };
+
+            } catch (e) {
+                console.error(e);
+                errorMessage.innerText = e.message;
+                errorMessage.classList.remove('hidden');
+                cleanup();
+            }
+        }
+
+        async function startAudio() {
+            inputAudioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: SAMPLE_RATE_IN
+            });
+            outputAudioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: SAMPLE_RATE_OUT
+            });
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: SAMPLE_RATE_IN,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+
+                if (!inputAudioContext) return; // Cleanup happened during await
+
+                const source = inputAudioContext.createMediaStreamSource(stream);
+                // Reduce buffer size to 1024 for ultra-low latency (~64ms)
+                scriptProcessor = inputAudioContext.createScriptProcessor(1024, 1, 1);
+
+                scriptProcessor.onaudioprocess = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const inputData = e.inputBuffer.getChannelData(0);
+
+                        // Visualization Data
+                        let sum = 0;
+                        for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
+                        const rms = Math.sqrt(sum / inputData.length);
+                        updateVisualizer(rms, isAiSpeaking);
+
+                        // Barge-In / Interruption Detection
+                        // Lower threshold to 0.08 to catch single words, relying on AEC to kill echo
+                        if (isAiSpeaking && rms > 0.1) { // Increased threshold to avoid false positives
+                            // console.log("Interruption detected!");
+                            activeSources.forEach(s => s.stop());
+                            activeSources.clear();
+                            isAiSpeaking = false;
+                        }
+
+                        // Conversion to Int16 for Gemini
+                        const int16 = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            let s = Math.max(-1, Math.min(1, inputData[i]));
+                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+
+                        const base64Data = arrayBufferToBase64(int16.buffer);
+                        ws.send(JSON.stringify({
+                            realtime_input: {
+                                media: {
+                                    data: base64Data
+                                }
+                            }
+                        }));
+                    }
+                };
+
+                source.connect(scriptProcessor);
+                scriptProcessor.connect(inputAudioContext.destination);
+
+            } catch (e) {
+                console.error("Audio Start Error", e);
+                throw e;
+            }
+        }
+
+        async function playAudio(base64Data) {
+            if (!outputAudioContext) return;
+
+            isAiSpeaking = true;
+            const arrayBuffer = base64ToArrayBuffer(base64Data);
+
+            // Manually decoding PCM (Int16 24kHz) to Float32 AudioBuffer
+            // Web Audio API decodeAudioData expects a full file (wav/mp3), not raw PCM usually, 
+            // unless wrapped in WAV container. Simple RAW PCM decoding:
+
+            // Note: The backend is sending raw PCM (from Gemini)
+            // We can just construct the buffer
+            const pcm16 = new Int16Array(arrayBuffer);
+            const float32 = new Float32Array(pcm16.length);
+            for (let i = 0; i < pcm16.length; i++) {
+                float32[i] = pcm16[i] / 32768.0;
+            }
+
+            const buffer = outputAudioContext.createBuffer(1, float32.length, SAMPLE_RATE_OUT);
+            buffer.getChannelData(0).set(float32);
+
+            // Initialize Analyser if needed
+            if (!outputAnalyser) {
+                outputAnalyser = outputAudioContext.createAnalyser();
+                outputAnalyser.fftSize = 256;
+            }
+
+            const source = outputAudioContext.createBufferSource();
+            source.buffer = buffer;
+
+            // Connect Chain: Source -> Analyser -> Destination
+            source.connect(outputAnalyser);
+            outputAnalyser.connect(outputAudioContext.destination);
+
+            const currentTime = outputAudioContext.currentTime;
+            if (nextStartTime < currentTime) nextStartTime = currentTime;
+
+            source.start(nextStartTime);
+            nextStartTime += buffer.duration;
+
+            activeSources.add(source);
+
+            source.onended = () => {
+                activeSources.delete(source);
+                if (activeSources.size === 0) {
+                    isAiSpeaking = false;
+                }
+            };
+        }
+
+        function cleanup() {
+            setStatus('DISCONNECTED');
+            isAiSpeaking = false;
+
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            if (scriptProcessor) {
+                scriptProcessor.disconnect();
+                scriptProcessor = null;
+            }
+
+            if (inputAudioContext) {
+                inputAudioContext.close();
+                inputAudioContext = null;
+            }
+
+            if (outputAudioContext) {
+                outputAudioContext.close();
+                outputAudioContext = null;
+            }
+            outputAnalyser = null; // Important: Clear analyzer to force recreation
+
+            activeSources.forEach(s => s.stop());
+            activeSources.clear();
+            nextStartTime = 0;
+        }
+
+        // Visualization
+        function updateVisualizer(volume, aiActive) {
+            // Simply updating global vars, loop handles drawing
+            volumeHistory.push(volume);
+            volumeHistory.shift();
+        }
+
+        // Authorization
+        // ...
+
+        // Initialization
+        if (startBtn) startBtn.addEventListener('click', startSession);
+        if (stopBtn) stopBtn.addEventListener('click', cleanup);
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (messagesContainer) {
+                    messagesContainer.innerHTML = '';
+                    if (emptyState) emptyState.style.display = 'flex';
+                }
+            });
+        }
+
+        if (voiceBtns && voiceBtns.length > 0) {
+            voiceBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    console.log("Voice selected:", e.target.dataset.voice);
+                    voiceBtns.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    selectedVoice = e.target.dataset.voice;
+                });
+            });
+        } else {
+            console.warn("No voice buttons found!");
+        }
+
+        // Start loop
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Loaded, starting Avatar...");
+            initAvatar();
+            animate();
+        });
+    </script>
 </body>
 
 </html>
